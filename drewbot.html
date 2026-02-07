@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drew Bot — SIM Trading Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#0a0e1a;
+  --bg-secondary:#111827;
+  --bg-card:#131b2e;
+  --bg-card-hover:#182036;
+  --border:#1e2a45;
+  --border-glow:rgba(59,130,246,0.15);
+  --text-primary:#e2e8f0;
+  --text-secondary:#64748b;
+  --text-muted:#475569;
+  --green:#10b981;
+  --green-dim:rgba(16,185,129,0.12);
+  --red:#ef4444;
+  --red-dim:rgba(239,68,68,0.12);
+  --blue:#3b82f6;
+  --blue-dim:rgba(59,130,246,0.1);
+  --yellow:#f59e0b;
+  --cyan:#06b6d4;
+}
+html{font-size:14px}
+body{
+  background:var(--bg-primary);
+  color:var(--text-primary);
+  font-family:'Outfit',sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* Subtle grid background */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+
+.app{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:20px 24px 40px}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.header-left{display:flex;align-items:center;gap:12px}
+.bot-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--blue),#8b5cf6);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+}
+.bot-name{font-size:1.6rem;font-weight:700;letter-spacing:-0.5px}
+.sim-badge{
+  background:var(--bg-secondary);border:1px solid var(--border);
+  padding:2px 10px;border-radius:20px;font-size:0.75rem;
+  font-weight:600;color:var(--text-secondary);letter-spacing:1px;
+  text-transform:uppercase;
+}
+.status{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-secondary)}
+.status-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);
+  animation:pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Stat Cards */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;padding:18px 20px;
+  transition:border-color .3s,box-shadow .3s;
+}
+.stat-card:hover{border-color:rgba(59,130,246,0.3);box-shadow:0 0 20px rgba(59,130,246,0.05)}
+.stat-label{font-size:0.8rem;color:var(--text-secondary);margin-bottom:6px;font-weight:500}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.55rem;font-weight:700}
+.stat-value.green{color:var(--green)}
+.stat-value.red{color:var(--red)}
+.stat-value.white{color:var(--text-primary)}
+.stat-sub{font-size:0.72rem;color:var(--text-muted);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+/* Chart */
+.chart-container{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;padding:20px 24px;margin-bottom:24px;
+}
+.chart-title{font-size:1rem;font-weight:600;margin-bottom:16px}
+.chart-area{position:relative;height:240px;overflow:hidden}
+canvas{width:100%!important;height:100%!important}
+
+/* Bottom Grid */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* Open Positions */
+.panel{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;padding:20px 24px;
+}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-title{font-size:1rem;font-weight:600}
+.panel-count{
+  font-size:0.75rem;color:var(--text-muted);
+  background:var(--bg-secondary);padding:2px 8px;border-radius:8px;
+}
+.positions-table{width:100%}
+.positions-table th{
+  text-align:left;font-size:0.72rem;color:var(--text-muted);
+  font-weight:500;padding:8px 0;border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.positions-table td{
+  padding:12px 0;font-family:'JetBrains Mono',monospace;
+  font-size:0.82rem;border-bottom:1px solid rgba(30,42,69,0.5);
+}
+.positions-table td:first-child{font-family:'Outfit',sans-serif;font-weight:600}
+.pnl-pos{color:var(--green)}
+.pnl-neg{color:var(--red)}
+
+/* Bot Activity */
+.activity-list{max-height:340px;overflow-y:auto;padding-right:4px}
+.activity-list::-webkit-scrollbar{width:4px}
+.activity-list::-webkit-scrollbar-track{background:transparent}
+.activity-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.activity-item{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px;border-radius:10px;margin-bottom:6px;
+  border:1px solid transparent;transition:all .2s;
+}
+.activity-item:hover{background:var(--bg-card-hover);border-color:var(--border)}
+.activity-icon{
+  width:28px;height:28px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;margin-top:2px;
+}
+.activity-icon.scan{background:var(--blue-dim);color:var(--blue)}
+.activity-icon.safe{background:var(--green-dim);color:var(--green)}
+.activity-icon.warn{background:var(--red-dim);color:var(--red)}
+.activity-icon.buy{background:rgba(245,158,11,0.12);color:var(--yellow)}
+.activity-content{flex:1;min-width:0}
+.activity-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.activity-name{font-weight:600;font-size:0.88rem}
+.activity-badge{
+  font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.badge-scan{background:var(--blue-dim);color:var(--blue)}
+.badge-safe{background:var(--green-dim);color:var(--green)}
+.badge-warn{background:var(--red-dim);color:var(--red)}
+.badge-buy{background:rgba(245,158,11,0.12);color:var(--yellow)}
+.activity-desc{font-size:0.75rem;color:var(--text-secondary);line-height:1.4}
+.activity-time{font-size:0.68rem;color:var(--text-muted);flex-shrink:0;margin-top:4px}
+.event-count{font-size:0.75rem;color:var(--text-muted)}
+
+/* Animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.stat-card,.chart-container,.panel{animation:fadeUp .5s ease-out both}
+.stat-card:nth-child(1){animation-delay:.05s}
+.stat-card:nth-child(2){animation-delay:.1s}
+.stat-card:nth-child(3){animation-delay:.15s}
+.stat-card:nth-child(4){animation-delay:.2s}
+.chart-container{animation-delay:.25s}
+.bottom-grid .panel:first-child{animation-delay:.3s}
+.bottom-grid .panel:last-child{animation-delay:.35s}
+
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .bottom-grid{grid-template-columns:1fr}
+}
+@media(max-width:500px){
+  .stats-grid{grid-template-columns:1fr}
+  .app{padding:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="bot-icon">🤖</div>
+      <span class="bot-name">Drew Bot</span>
+      <span class="sim-badge">SIM</span>
+    </div>
+    <div class="status">
+      <div class="status-dot"></div>
+      Connected
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Balance</div>
+      <div class="stat-value green" id="balance">$9,803.42</div>
+      <div class="stat-sub">Available: $7,803.42 / Deployed: $2,000.00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total P&L</div>
+      <div class="stat-value red" id="pnl">$-196.58</div>
+      <div class="stat-sub">Daily: <span class="pnl-neg">$-196.58</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-value green">+60.0%</div>
+      <div class="stat-sub">3W / 2L · Avg +8954.8% / -23261.5%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Open Positions</div>
+      <div class="stat-value white">2</div>
+      <div class="stat-sub">30 tracked · 23 passed</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-container">
+    <div class="chart-title">Balance History</div>
+    <div class="chart-area">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Bottom -->
+  <div class="bottom-grid">
+    <!-- Open Positions -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Open Positions <span style="color:var(--text-muted);font-weight:400">(2)</span></div>
+      </div>
+      <table class="positions-table">
+        <thead>
+          <tr><th>Symbol</th><th>Entry</th><th>Current</th><th>Size</th><th>P&L</th><th>Time</th></tr>
+        </thead>
+        <tbody id="positions-body">
+          <tr>
+            <td>Singularity</td>
+            <td>$0.000243</td>
+            <td>$0.000261</td>
+            <td>$1,000.00</td>
+            <td class="pnl-pos">+7.7%</td>
+            <td>3h 8m</td>
+          </tr>
+          <tr>
+            <td>BOBBY</td>
+            <td>$0.000362</td>
+            <td>$0.000326</td>
+            <td>$1,000.00</td>
+            <td class="pnl-neg">-10.0%</td>
+            <td>2h 33m</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bot Activity -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Bot Activity</div>
+        <div class="event-count" id="event-count">100 events</div>
+      </div>
+      <div class="activity-list" id="activity-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === CHART ===
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * 2;
+  canvas.height = rect.height * 2;
+  ctx.scale(2,2);
+  drawChart();
+}
+
+const balanceData = [
+  10000,10000,10000,10000,10000,10000,10000,10000,
+  9980,9960,9920,9880,9850,9840,9830,9820,9815,
+  9810,9808,9806,9805,9804,9803,9803,9803,9803,
+  9803,9803,9803,9803,9803,9803,9803,9803,9803,
+  9803,9803,9803,9803,9803,9803,9803,9803,9803,9803
+];
+const timeLabels = [];
+let h = 15, m = 44;
+for(let i = 0; i < balanceData.length; i++){
+  timeLabels.push(`${h > 12 ? h-12 : h}:${String(m).padStart(2,'0')} PM`);
+  m += 1;
+  if(m >= 60){m = 0; h++;}
+}
+
+function drawChart(){
+  const W = canvas.width / 2;
+  const H = canvas.height / 2;
+  const pad = {top:30,right:20,bottom:30,left:55};
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0,0,W,H);
+
+  const minV = 9790;
+  const maxV = 10050;
+  const range = maxV - minV;
+
+  // Grid lines
+  const gridSteps = [9800,9850,9900,9950,10000];
+  ctx.strokeStyle = 'rgba(30,42,69,0.6)';
+  ctx.lineWidth = 0.5;
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillStyle = '#475569';
+  ctx.textAlign = 'right';
+
+  gridSteps.forEach(v => {
+    const y = pad.top + ch - ((v - minV) / range) * ch;
+    ctx.beginPath();
+    ctx.setLineDash([3,3]);
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('$' + (v/1000).toFixed(1) + 'k', pad.left - 6, y + 3);
+  });
+
+  // Starting balance line
+  const startY = pad.top + ch - ((10000 - minV) / range) * ch;
+  ctx.strokeStyle = 'rgba(59,130,246,0.2)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([5,5]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, startY);
+  ctx.lineTo(pad.left + cw, startY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'left';
+  ctx.fillText('Start', pad.left + cw + 4, startY + 3);
+
+  // X labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#475569';
+  const xStep = Math.floor(balanceData.length / 8);
+  for(let i = 0; i < balanceData.length; i += xStep){
+    const x = pad.left + (i / (balanceData.length - 1)) * cw;
+    ctx.fillText(timeLabels[i], x, H - 6);
+  }
+
+  // Line
+  ctx.beginPath();
+  balanceData.forEach((v, i) => {
+    const x = pad.left + (i / (balanceData.length - 1)) * cw;
+    const y = pad.top + ch - ((v - minV) / range) * ch;
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Fill under line
+  const lastX = pad.left + cw;
+  const lastY = pad.top + ch - ((balanceData[balanceData.length-1] - minV) / range) * ch;
+  ctx.lineTo(lastX, pad.top + ch);
+  ctx.lineTo(pad.left, pad.top + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, startY, 0, pad.top + ch);
+  grad.addColorStop(0, 'rgba(239,68,68,0.15)');
+  grad.addColorStop(1, 'rgba(239,68,68,0.01)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// === ACTIVITY FEED ===
+const activities = [
+  {icon:'🔍',type:'scan',badge:'SCAN',name:'SCAN',desc:'Scanned tokens — no new candidates passed screening',time:'8s ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'Sinclair',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'2m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'AI',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'2m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'PEX',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'2m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'CONCHO',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'2m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'AVATAR',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'2m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'SCAR',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'3m ago'},
+  {icon:'🔍',type:'scan',badge:'SCAN',name:'SCAN',desc:'Scanned 12 new tokens — 3 candidates passed initial screening',time:'3m ago'},
+  {icon:'💰',type:'buy',badge:'BUY',name:'Singularity',desc:'Bought $1,000.00 at $0.000243 — volume spike detected, social score: 78/100',time:'3h 8m ago'},
+  {icon:'💰',type:'buy',badge:'BUY',name:'BOBBY',desc:'Bought $1,000.00 at $0.000362 — momentum signal triggered, liquidity: $45K',time:'2h 33m ago'},
+  {icon:'⚠️',type:'warn',badge:'WARN',name:'RUGCOIN',desc:'Failed safety: Mint authority NOT renounced ✗ | Top holder owns 45% ✗ — skipped',time:'4m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'NEXUS',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'5m ago'},
+  {icon:'🔍',type:'scan',badge:'SCAN',name:'SCAN',desc:'Scanned tokens — 1 candidate passed screening, evaluating entry',time:'5m ago'},
+  {icon:'⚠️',type:'warn',badge:'WARN',name:'FAKEMOON',desc:'Failed safety: Freeze authority active ✗ | Suspicious deployer history — skipped',time:'6m ago'},
+  {icon:'✅',type:'safe',badge:'SAFE',name:'ORBIT',desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',time:'7m ago'},
+];
+
+const list = document.getElementById('activity-list');
+activities.forEach(a => {
+  const badgeClass = a.type === 'scan' ? 'badge-scan' : a.type === 'safe' ? 'badge-safe' : a.type === 'warn' ? 'badge-warn' : 'badge-buy';
+  const iconClass = a.type === 'scan' ? 'scan' : a.type === 'safe' ? 'safe' : a.type === 'warn' ? 'warn' : 'buy';
+  list.innerHTML += `
+    <div class="activity-item">
+      <div class="activity-icon ${iconClass}">${a.icon}</div>
+      <div class="activity-content">
+        <div class="activity-top">
+          <span class="activity-name">${a.name}</span>
+          <span class="activity-badge ${badgeClass}">${a.badge}</span>
+        </div>
+        <div class="activity-desc">${a.desc}</div>
+      </div>
+      <div class="activity-time">${a.time}</div>
+    </div>`;
+});
+
+// === LIVE SIMULATION ===
+let eventCount = 100;
+const tokenNames = ['ALPHA','BETA','GAMMA','DELTA','OMEGA','PULSE','NOVA','FLUX','DRIFT','CORE','WAVE','APEX','SURGE','LUNA','SOL','MARS','VEGA','QUARK','PRISM','HELIX'];
+
+function randomToken(){return tokenNames[Math.floor(Math.random()*tokenNames.length)]}
+
+function addActivity(){
+  const roll = Math.random();
+  let a;
+  if(roll < 0.4){
+    a = {icon:'🔍',type:'scan',badge:'SCAN',name:'SCAN',
+      desc:`Scanned tokens — ${Math.random()>0.6 ? Math.ceil(Math.random()*5)+' candidates passed screening' : 'no new candidates passed screening'}`,
+      time:'just now'};
+  } else if(roll < 0.75){
+    const t = randomToken();
+    a = {icon:'✅',type:'safe',badge:'SAFE',name:t,
+      desc:'Passed safety: Mint authority: renounced ✓ | Freeze authority: disabled ✓ | LP locked: yes ✓ | Top holder concentration: ok ✓',
+      time:'just now'};
+  } else {
+    const t = randomToken();
+    a = {icon:'⚠️',type:'warn',badge:'WARN',name:t,
+      desc:`Failed safety: ${Math.random()>0.5?'Mint authority NOT renounced ✗':'Freeze authority active ✗'} | ${Math.random()>0.5?'Top holder owns '+(20+Math.floor(Math.random()*30))+'% ✗':'Suspicious deployer ✗'} — skipped`,
+      time:'just now'};
+  }
+
+  const badgeClass = a.type==='scan'?'badge-scan':a.type==='safe'?'badge-safe':'badge-warn';
+  const iconClass = a.type==='scan'?'scan':a.type==='safe'?'safe':'warn';
+  const el = document.createElement('div');
+  el.className = 'activity-item';
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(-8px)';
+  el.innerHTML = `
+    <div class="activity-icon ${iconClass}">${a.icon}</div>
+    <div class="activity-content">
+      <div class="activity-top">
+        <span class="activity-name">${a.name}</span>
+        <span class="activity-badge ${badgeClass}">${a.badge}</span>
+      </div>
+      <div class="activity-desc">${a.desc}</div>
+    </div>
+    <div class="activity-time">${a.time}</div>`;
+
+  list.prepend(el);
+  requestAnimationFrame(() => {
+    el.style.transition = 'opacity .3s, transform .3s';
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  });
+
+  eventCount++;
+  document.getElementById('event-count').textContent = eventCount + ' events';
+
+  // Keep list manageable
+  while(list.children.length > 50) list.removeChild(list.lastChild);
+}
+
+// Simulate P&L fluctuation
+function updatePositions(){
+  const rows = document.querySelectorAll('#positions-body tr');
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const entry = parseFloat(cells[1].textContent.replace('$',''));
+    const drift = (Math.random()-0.48) * entry * 0.02;
+    const current = entry + drift + (parseFloat(cells[2].textContent.replace('$','')) - entry) * 0.95;
+    const pnl = ((current - entry) / entry * 100);
+    cells[2].textContent = '$' + current.toFixed(6);
+    cells[4].textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(1) + '%';
+    cells[4].className = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+  });
+}
+
+setInterval(addActivity, 4000 + Math.random() * 3000);
+setInterval(updatePositions, 3000);
+</script>
+</body>
+</html>
